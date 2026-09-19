@@ -43,3 +43,11 @@ export const updateProduct = async (
   );
   return response.data;
 };
+
+// US08: Eliminar producto consumiendo DELETE /products/{id}
+export const deleteProduct = async (id: number): Promise<ProductResponse> => {
+  const response = await axios.delete<ProductResponse>(
+    `${BASE_URL}/products/${id}`,
+  );
+  return response.data;
+};
