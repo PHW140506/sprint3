@@ -10,7 +10,20 @@ export default function Home() {
       <Text style={styles.title}>FakeStore App</Text>
       <Text style={styles.subtitle}>Catálogo de productos</Text>
 
-      {/* Botón flotante para abrir US06 */}
+      {/* Botón flotante para probar US07: Editar producto ID 1 */}
+      <TouchableOpacity
+        style={styles.fabEdit}
+        onPress={() =>
+          router.push({
+            pathname: "/edit-product" as any,
+            params: { id: 1 },
+          })
+        }
+      >
+        <Ionicons name="pencil" size={22} color="#ffffff" />
+      </TouchableOpacity>
+
+      {/* Botón flotante para abrir US06: Crear producto */}
       <TouchableOpacity
         style={styles.fab}
         onPress={() => router.push("/create-product" as any)}
@@ -46,6 +59,21 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 28,
     backgroundColor: "#4f46e5",
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+  },
+  fabEdit: {
+    position: "absolute",
+    bottom: 92,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#6366f1",
     alignItems: "center",
     justifyContent: "center",
     elevation: 4,
