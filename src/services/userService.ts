@@ -1,9 +1,4 @@
-import NetInfo from "@react-native-community/netinfo";
-import axios, { AxiosError } from "axios";
-
-import { mapUser, User } from "@/types/user";
-
-const BASE_URL = "https://fakestoreapi.com";
+import { User } from "../types/user";
 
 export class UserServiceError extends Error {
   constructor(message: string) {
@@ -12,50 +7,49 @@ export class UserServiceError extends Error {
   }
 }
 
-const getFriendlyMessage = (error: unknown): string => {
-  if (error instanceof UserServiceError) return error.message;
-
-  if (axios.isAxiosError(error)) {
-    const axiosError = error as AxiosError;
-
-    if (
-      axiosError.code === "ECONNABORTED" ||
-      axiosError.code === "ERR_NETWORK" ||
-      !axiosError.response
-    ) {
-      return "No se pudo conectar con Fake Store API. Revisa tu conexión e inténtalo nuevamente.";
-    }
-
-    if (axiosError.response.status >= 500) {
-      return "Fake Store API no está disponible temporalmente. Inténtalo de nuevo en unos momentos.";
-    }
-  }
-
-  return "No fue posible cargar el directorio de usuarios.";
-};
-
-export const getUsers = async (): Promise<User[]> => {
-  const network = await NetInfo.fetch();
-
-  if (network.isConnected === false || network.isInternetReachable === false) {
-    throw new UserServiceError(
-      "Sin conexión a Internet. Conéctate a una red y vuelve a intentarlo.",
-    );
-  }
-
+export async function getUsers(): Promise<User[]> {
   try {
-    const response = await axios.get<unknown>(`${BASE_URL}/users`, {
-      timeout: 10000,
-    });
+    const response = await fetch("https://fakestoreapi.com/users");
 
-    if (!Array.isArray(response.data)) {
+    if (!response.ok) {
+      throw new UserServiceError(`Error del servidor (${response.status})`);
+    }
+
+    const data = await response.json();
+
+    if (!Array.isArray(data)) {
       throw new UserServiceError(
         "La respuesta del servidor no contiene una lista de usuarios válida.",
       );
     }
 
-    return response.data.map(mapUser);
-  } catch (error) {
-    throw new UserServiceError(getFriendlyMessage(error));
+    return data.map((u: any) => ({
+      id: u.id,
+      email: u.email || "",
+      username: u.username || "",
+      password: u.password || "",
+      name: {
+        firstname: u.name?.firstname || "Usuario",
+        lastname: u.name?.lastname || "",
+      },
+      address: {
+        city: u.address?.city || "Sin ciudad",
+        street: u.address?.street || "Sin calle",
+        number: u.address?.number || 0,
+        zipcode: u.address?.zipcode || "00000",
+        geolocation: {
+          lat: u.address?.geolocation?.lat || "0",
+          long: u.address?.geolocation?.long || "0",
+        },
+      },
+      phone: u.phone || "Sin teléfono",
+    }));
+  } catch (error: any) {
+    if (error instanceof UserServiceError) {
+      throw error;
+    }
+    throw new UserServiceError(
+      "No se pudo conectar con el servicio de usuarios. Revisa tu conexión.",
+    );
   }
-};
+}
