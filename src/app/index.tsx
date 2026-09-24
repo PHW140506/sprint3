@@ -18,7 +18,7 @@ export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const router = useRouter();
-  const { canAccessUsers } = useAuth();
+  const { canAccessUsers, canAccessAudits } = useAuth();
 
   // 1. Obtener las categorías disponibles al iniciar (Endpoint: /products/categories)
   useEffect(() => {
@@ -55,15 +55,27 @@ export default function Home() {
           <Text style={styles.subtitle}>Catálogo de productos</Text>
         </View>
 
-        {canAccessUsers && (
-          <TouchableOpacity
-            accessibilityLabel="Abrir directorio de usuarios"
-            style={styles.usersButton}
-            onPress={() => router.push("/users" as any)}
-          >
-            <Ionicons name="people-outline" size={22} color="#4f46e5" />
-          </TouchableOpacity>
-        )}
+        <View style={styles.headerActions}>
+          {canAccessUsers && (
+            <TouchableOpacity
+              accessibilityLabel="Abrir directorio de usuarios"
+              style={styles.headerButton}
+              onPress={() => router.push("/users" as any)}
+            >
+              <Ionicons name="people-outline" size={22} color="#4f46e5" />
+            </TouchableOpacity>
+          )}
+
+          {canAccessAudits && (
+            <TouchableOpacity
+              accessibilityLabel="Abrir auditoría de carritos"
+              style={styles.headerButton}
+              onPress={() => router.push("/audits" as any)}
+            >
+              <Ionicons name="shield-checkmark-outline" size={22} color="#4f46e5" />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {/* Barra de categorías horizontal (Chips) */}
@@ -158,10 +170,11 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e2e8f0',
   },
   headerCopy: { flex: 1 },
-  usersButton: {
+  headerActions: { flexDirection: 'row', alignItems: 'center' },
+  headerButton: {
     width: 44,
     height: 44,
-    marginLeft: 12,
+    marginLeft: 8,
     borderRadius: 22,
     backgroundColor: '#eef2ff',
     alignItems: 'center',
