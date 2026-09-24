@@ -1,193 +1,152 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, FlatList, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-interface ProductDetail {
+interface Product {
   id: number;
   title: string;
   price: number;
-  description: string;
-  category: string;
   image: string;
+  category: string;
 }
 
-export default function ProductDetailScreen() {
-  const { id } = useLocalSearchParams();
-  const router = useRouter();
-  const [product, setProduct] = useState<ProductDetail | null>(null);
+export default function Home() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  
-  // Simulación de sesión local para cumplir con la regla de negocio (ej. "admin" o "cliente")
-  const [userRole, setUserRole] = useState<string>("admin"); 
+  const router = useRouter();
 
+  // 1. Obtener las categorías disponibles al iniciar
   useEffect(() => {
-    if (!id) return;
+    fetch('https://fakestoreapi.com/products/categories')
+      .then((res) => res.json())
+      .then((data) => setCategories(data))
+      .catch((error) => console.error('Error al cargar categorías:', error));
+  }, []);
 
+  // 2. Obtener productos (general o filtrados por categoría)
+  useEffect(() => {
     setLoading(true);
-    fetch(`https://fakestoreapi.com/products/${id}`)
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error("Producto no disponible");
-        }
-        return res.json();
-      })
+    const url = selectedCategory 
+      ? `https://fakestoreapi.com/products/category/${selectedCategory}`
+      : 'https://fakestoreapi.com/products';
+
+    fetch(url)
+      .then((res) => res.json())
       .then((data) => {
-        if (!data) {
-          throw new Error("Producto no disponible");
-        }
-        setProduct(data);
+        setProducts(data);
         setLoading(false);
       })
       .catch((error) => {
-        console.error(error);
+        console.error('Error al cargar productos:', error);
         setLoading(false);
-        Alert.alert("Error", "Producto no disponible", [
-          { text: "OK", onPress: () => router.back() }
-        ]);
       });
-  }, [id]);
-
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#4f46e5" />
-        <Text style={styles.loadingText}>Cargando detalle...</Text>
-      </View>
-    );
-  }
-
-  if (!product) {
-    return null;
-  }
+  }, [selectedCategory]);
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Image source={{ uri: product.image }} style={styles.image} />
-      
-      <View style={styles.content}>
-        <Text style={styles.category}>{product.category.toUpperCase()}</Text>
-        <Text style={styles.title}>{product.title}</Text>
-        <Text style={styles.price}>${product.price.toFixed(2)}</Text>
-        
-        <Text style={styles.sectionTitle} suppressHighlighting={true}>Descripción</Text>
-        <Text style={styles.description}>{product.description}</Text>
-
-        {/* Interfaz dinámica condicionada estrictamente por el rol de sesión local (US05) */}
-        {userRole === "admin" && (
-          <View style={styles.adminActions}>
-            <TouchableOpacity 
-              style={styles.editButton} 
-              onPress={() => router.push({ pathname: "/edit-product" as any, params: { id: product.id } })}
-            >
-              <Ionicons name="pencil" size={20} color="#ffffff" />
-              <Text style={styles.buttonText}>Editar</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={styles.deleteButton} 
-              onPress={() => {
-                Alert.alert("Eliminar", "¿Estás segura de eliminar este producto?", [
-                  { text: "Cancelar", style: "cancel" },
-                  { text: "Eliminar", style: "destructive", onPress: () => router.back() }
-                ]);
-              }}
-            >
-              <Ionicons name="trash" size={20} color="#ffffff" />
-              <Text style={styles.buttonText}>Eliminar</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>FakeStore App</Text>
+        <Text style={styles.subtitle}>Catálogo de productos</Text>
       </View>
-    </ScrollView>
+
+      {/* Barra de categorías horizontal */}
+      <View style={styles.categoriesContainer}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipScroll}>
+          <TouchableOpacity 
+            style={[styles.chip, selectedCategory === null && styles.chipActive]}
+            onPress={() => setSelectedCategory(null)}
+          >
+            <Text style={[styles.chipText, selectedCategory === null && styles.chipTextActive]}>Todos</Text>
+          </TouchableOpacity>
+
+          {categories.map((cat) => (
+            <TouchableOpacity 
+              key={cat}
+              style={[styles.chip, selectedCategory === cat && styles.chipActive]}
+              onPress={() => setSelectedCategory(cat)}
+            >
+              <Text style={[styles.chipText, selectedCategory === cat && styles.chipTextActive]}>
+                {cat.charAt(0).toUpperCase() + cat.slice(1)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* Lista de productos */}
+      {loading ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color="#4f46e5" />
+          <Text style={styles.loadingText}>Cargando productos...</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={products}
+          keyExtractor={(item) => item.id.toString()}
+          contentContainerStyle={styles.listContainer}
+          renderItem={({ item }) => (
+            <TouchableOpacity 
+              style={styles.card}
+              onPress={() => router.push({ pathname: '/product-detail' as any, params: { id: item.id } })}
+            >
+              <Image source={{ uri: item.image }} style={styles.image} />
+              <View style={styles.info}>
+                <Text style={styles.productTitle} numberOfLines={2}>{item.title}</Text>
+                <Text style={styles.price}>${item.price.toFixed(2)}</Text>
+              </View>
+            </TouchableOpacity>
+          )}
+        />
+      )}
+
+      {/* Botones flotantes */}
+      <TouchableOpacity
+        style={styles.fabDelete}
+        onPress={() => router.push({ pathname: "/product-detail" as any, params: { id: 1 } })}
+      >
+        <Ionicons name="trash" size={20} color="#ffffff" />
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.fabEdit}
+        onPress={() => router.push({ pathname: "/edit-product" as any, params: { id: 1 } })}
+      >
+        <Ionicons name="pencil" size={22} color="#ffffff" />
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => router.push("/create-product" as any)}
+      >
+        <Ionicons name="add" size={24} color="#ffffff" />
+      </TouchableOpacity>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 16,
-    backgroundColor: "#ffffff",
-    flexGrow: 1,
-  },
-  center: { 
-    flex: 1, 
-    justifyContent: 'center', 
-    alignItems: 'center',
-    backgroundColor: "#ffffff" 
-  },
-  loadingText: { 
-    marginTop: 10, 
-    color: '#64748b' 
-  },
-  image: { 
-    width: '100%', 
-    height: 280, 
-    resizeMode: 'contain', 
-    marginBottom: 20 
-  },
-  content: {
-    flex: 1,
-  },
-  category: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#4f46e5',
-    marginBottom: 6,
-    letterSpacing: 1,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#0f172a',
-    marginBottom: 10,
-  },
-  price: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#16a34a',
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#334155',
-    marginBottom: 6,
-  },
-  description: {
-    fontSize: 14,
-    color: '#64748b',
-    lineHeight: 22,
-    marginBottom: 24,
-  },
-  adminActions: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 'auto',
-    paddingVertical: 12,
-  },
-  editButton: {
-    flex: 1,
-    backgroundColor: '#4f46e5',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 12,
-    borderRadius: 8,
-    gap: 8,
-  },
-  deleteButton: {
-    flex: 1,
-    backgroundColor: '#e11d48',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 12,
-    borderRadius: 8,
-    gap: 8,
-  },
-  buttonText: {
-    color: '#ffffff',
-    fontWeight: '600',
-    fontSize: 16,
-  },
+  container: { flex: 1, backgroundColor: "#f8fafc" },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { marginTop: 10, color: '#64748b' },
+  header: { padding: 16, backgroundColor: '#ffffff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  title: { fontSize: 24, fontWeight: "bold", color: "#0f172a" },
+  subtitle: { fontSize: 14, color: "#64748b" },
+  categoriesContainer: { backgroundColor: '#ffffff', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  chipScroll: { paddingHorizontal: 16 },
+  chip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#f1f5f9', marginRight: 8, height: 36, justifyContent: 'center' },
+  chipActive: { backgroundColor: '#4f46e5' },
+  chipText: { fontSize: 13, color: '#64748b', fontWeight: '600' },
+  chipTextActive: { color: '#ffffff' },
+  listContainer: { padding: 16, paddingBottom: 100 },
+  card: { flexDirection: 'row', backgroundColor: '#ffffff', marginBottom: 12, borderRadius: 12, padding: 12, alignItems: 'center', elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4 },
+  image: { width: 60, height: 60, resizeMode: 'contain', marginRight: 12 },
+  info: { flex: 1 },
+  productTitle: { fontSize: 15, fontWeight: '600', color: '#1e293b' },
+  price: { fontSize: 14, color: '#16a34a', marginTop: 6, fontWeight: 'bold' },
+  fab: { position: "absolute", bottom: 24, right: 24, width: 56, height: 56, borderRadius: 28, backgroundColor: "#4f46e5", alignItems: "center", justifyContent: "center", elevation: 4 },
+  fabEdit: { position: "absolute", bottom: 92, right: 24, width: 56, height: 56, borderRadius: 28, backgroundColor: "#6366f1", alignItems: "center", justifyContent: "center", elevation: 4 },
+  fabDelete: { position: "absolute", bottom: 160, right: 24, width: 56, height: 56, borderRadius: 28, backgroundColor: "#e11d48", alignItems: "center", justifyContent: "center", elevation: 4 },
 });
