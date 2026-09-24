@@ -4,6 +4,8 @@ import { useState } from "react";
 import {
     ActivityIndicator,
     Alert,
+    KeyboardAvoidingView,
+    Platform,
     ScrollView,
     StyleSheet,
     Text,
@@ -11,10 +13,6 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-import { createProduct } from "../services/productService";
-
-// Simulación del rol activo (Para probar: 'admin', 'client' o 'auditor')
-const CURRENT_USER_ROLE: "admin" | "client" | "auditor" = "admin";
 
 const CATEGORIES = [
   "men's clothing",
@@ -26,159 +24,117 @@ const CATEGORIES = [
 export default function CreateProductScreen() {
   const router = useRouter();
 
-  // Escenario 3: Bloqueo de acceso si no es Administrador
-  if (CURRENT_USER_ROLE !== "admin") {
-    Alert.alert(
-      "Acceso Denegado",
-      "Solo administradores pueden crear productos.",
-      [{ text: "Aceptar", onPress: () => router.replace("/") }],
-    );
-    return null;
-  }
-
-  // Estado del formulario
   const [title, setTitle] = useState("");
   const [price, setPrice] = useState("");
-  const [category, setCategory] = useState(CATEGORIES[0]);
+  const [category, setCategory] = useState("electronics");
   const [image, setImage] = useState(
-    "https://placehold.co/400x400/4f46e5/ffffff?text=Nuevo+Articulo",
+    "https://fakestoreapi.com/img/81fPKd-2AYL._AC_SL1500_.jpg",
   );
   const [description, setDescription] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  // Estado de validación y carga
-  const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState<{ [key: string]: boolean }>({});
+  const handleSubmit = async () => {
+    const numPrice = parseFloat(price);
 
-  const validate = () => {
-    const newErrors: { [key: string]: boolean } = {};
-    if (!title.trim()) newErrors.title = true;
-    if (!price.trim() || isNaN(Number(price)) || Number(price) <= 0)
-      newErrors.price = true;
-    if (!image.trim() || !image.startsWith("http")) newErrors.image = true;
-    if (!description.trim()) newErrors.description = true;
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSave = async () => {
-    // Escenario 2: Validación antes de mandar la petición
-    if (!validate()) {
+    // Validación según US06
+    if (
+      !title.trim() ||
+      isNaN(numPrice) ||
+      numPrice <= 0 ||
+      !description.trim()
+    ) {
       Alert.alert(
         "Campos inválidos",
-        "Por favor corrige los campos marcados en rojo. El precio debe ser numérico mayor a 0 y la URL debe ser válida.",
+        "Por favor completa el título, la descripción y un precio válido mayor a 0.",
       );
       return;
     }
 
-    setLoading(true);
-
+    setSubmitting(true);
     try {
-      // Escenario 1: Petición POST a la API
-      const response = await createProduct({
-        title: title.trim(),
-        price: parseFloat(price),
-        category,
-        image: image.trim(),
-        description: description.trim(),
+      const response = await fetch("https://fakestoreapi.com/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: title.trim(),
+          price: numPrice,
+          description: description.trim(),
+          image: image.trim(),
+          category,
+        }),
       });
 
-      // Confirmación con el nuevo ID generado
+      if (!response.ok) {
+        throw new Error("Error en el servidor al crear el producto.");
+      }
+
+      const data = await response.json();
+      const generatedId = data.id || 21;
+
       Alert.alert(
-        "Producto Creado",
-        `El artículo fue registrado con éxito en la API con el ID: #${response.id} (Simulación).`,
-        [
-          {
-            text: "Aceptar",
-            onPress: () => {
-              // Limpiar formulario
-              setTitle("");
-              setPrice("");
-              setImage(
-                "https://placehold.co/400x400/4f46e5/ffffff?text=Nuevo+Articulo",
-              );
-              setDescription("");
-              setErrors({});
-              router.back();
-            },
-          },
-        ],
+        "Operación Exitosa",
+        `Producto creado con éxito (ID #${generatedId} Simulado).`,
+        [{ text: "Aceptar", onPress: () => router.replace("/") }],
       );
     } catch (error) {
-      Alert.alert(
-        "Error",
-        "No se pudo conectar con el servidor de Fake Store API.",
-      );
+      Alert.alert("Error", "No se pudo registrar el nuevo producto.");
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      {/* Encabezado */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.btnBack}>
-          <Ionicons name="arrow-back" size={20} color="#334155" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Nuevo Producto (POST)</Text>
-      </View>
-
-      {/* Tarjeta con el formulario */}
-      <View style={styles.card}>
-        {/* Título */}
-        <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Título del Producto *</Text>
-          <TextInput
-            style={[styles.input, errors.title && styles.inputError]}
-            placeholder="Ej: Smartwatch Pro"
-            placeholderTextColor="#94a3b8"
-            value={title}
-            onChangeText={(t) => {
-              setTitle(t);
-              if (errors.title) setErrors({ ...errors, title: false });
-            }}
-          />
+      <ScrollView contentContainerStyle={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backBtn}
+          >
+            <Ionicons name="arrow-back" size={22} color="#0f172a" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Crear Nuevo Producto (POST)</Text>
         </View>
 
-        {/* Fila: Precio y Categoría */}
-        <View style={styles.row}>
-          <View style={[styles.fieldGroup, { flex: 1, marginRight: 8 }]}>
-            <Text style={styles.label}>Precio ($ USD) *</Text>
+        <View style={styles.formCard}>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Título del Producto *</Text>
             <TextInput
-              style={[styles.input, errors.price && styles.inputError]}
-              placeholder="29.99"
-              placeholderTextColor="#94a3b8"
-              keyboardType="numeric"
-              value={price}
-              onChangeText={(p) => {
-                setPrice(p);
-                if (errors.price) setErrors({ ...errors, price: false });
-              }}
+              style={styles.input}
+              placeholder="Ej: Mochila impermeable"
+              value={title}
+              onChangeText={setTitle}
             />
           </View>
 
-          <View style={[styles.fieldGroup, { flex: 1.2 }]}>
-            <Text style={styles.label}>Categoría</Text>
-            <View style={styles.categoriesContainer}>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Precio ($ USD) *</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="29.99"
+              keyboardType="decimal-pad"
+              value={price}
+              onChangeText={setPrice}
+            />
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Categoría *</Text>
+            <View style={styles.categoryChips}>
               {CATEGORIES.map((cat) => (
                 <TouchableOpacity
                   key={cat}
+                  style={[styles.chip, category === cat && styles.chipActive]}
                   onPress={() => setCategory(cat)}
-                  style={[
-                    styles.categoryChip,
-                    category === cat && styles.categoryChipActive,
-                  ]}
                 >
                   <Text
                     style={[
-                      styles.categoryChipText,
-                      category === cat && styles.categoryChipTextActive,
+                      styles.chipText,
+                      category === cat && styles.chipTextActive,
                     ]}
-                    numberOfLines={1}
                   >
                     {cat}
                   </Text>
@@ -186,199 +142,120 @@ export default function CreateProductScreen() {
               ))}
             </View>
           </View>
-        </View>
 
-        {/* URL de Imagen */}
-        <View style={styles.fieldGroup}>
-          <Text style={styles.label}>URL de Imagen *</Text>
-          <TextInput
-            style={[styles.input, errors.image && styles.inputError]}
-            placeholder="https://..."
-            placeholderTextColor="#94a3b8"
-            value={image}
-            onChangeText={(img) => {
-              setImage(img);
-              if (errors.image) setErrors({ ...errors, image: false });
-            }}
-          />
-        </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>URL de la Imagen</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="https://..."
+              value={image}
+              onChangeText={setImage}
+            />
+          </View>
 
-        {/* Descripción */}
-        <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Descripción *</Text>
-          <TextInput
-            style={[
-              styles.input,
-              styles.textArea,
-              errors.description && styles.inputError,
-            ]}
-            placeholder="Descripción detallada del artículo..."
-            placeholderTextColor="#94a3b8"
-            multiline
-            numberOfLines={4}
-            value={description}
-            onChangeText={(d) => {
-              setDescription(d);
-              if (errors.description)
-                setErrors({ ...errors, description: false });
-            }}
-          />
-        </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Descripción *</Text>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              placeholder="Describe las características del artículo..."
+              multiline
+              numberOfLines={4}
+              value={description}
+              onChangeText={setDescription}
+            />
+          </View>
 
-        {/* Botones de acción */}
-        <View style={styles.buttonRow}>
-          <TouchableOpacity
-            style={styles.btnCancel}
-            onPress={() => router.back()}
-            disabled={loading}
-          >
-            <Text style={styles.btnCancelText}>Cancelar</Text>
-          </TouchableOpacity>
+          <View style={styles.buttonRow}>
+            <TouchableOpacity
+              style={styles.cancelBtn}
+              onPress={() => router.back()}
+              disabled={submitting}
+            >
+              <Text style={styles.cancelBtnText}>Cancelar</Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.btnSubmit, loading && styles.btnSubmitDisabled]}
-            onPress={handleSave}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#ffffff" size="small" />
-            ) : (
-              <Text style={styles.btnSubmitText}>Guardar Producto</Text>
-            )}
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.submitBtn, submitting && { opacity: 0.7 }]}
+              onPress={handleSubmit}
+              disabled={submitting}
+            >
+              {submitting ? (
+                <ActivityIndicator color="#ffffff" size="small" />
+              ) : (
+                <Text style={styles.submitBtnText}>Guardar Producto</Text>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    flexGrow: 1,
     backgroundColor: "#f8fafc",
-  },
-  contentContainer: {
     padding: 16,
-    paddingTop: 48,
+    paddingTop: 40,
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  btnBack: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  header: { flexDirection: "row", alignItems: "center", marginBottom: 20 },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: "#ffffff",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#0f172a",
-  },
-  card: {
+  headerTitle: { fontSize: 18, fontWeight: "bold", color: "#0f172a" },
+  formCard: {
     backgroundColor: "#ffffff",
-    borderRadius: 24,
-    padding: 18,
+    borderRadius: 16,
+    padding: 16,
     borderWidth: 1,
     borderColor: "#e2e8f0",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
   },
-  fieldGroup: {
-    marginBottom: 14,
-  },
-  label: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#334155",
-    marginBottom: 6,
-  },
+  inputGroup: { marginBottom: 14 },
+  label: { fontSize: 13, fontWeight: "600", color: "#334155", marginBottom: 6 },
   input: {
-    backgroundColor: "#ffffff",
     borderWidth: 1,
     borderColor: "#cbd5e1",
-    borderRadius: 12,
+    borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    fontSize: 13,
+    fontSize: 14,
     color: "#0f172a",
+    backgroundColor: "#f8fafc",
   },
-  inputError: {
-    borderColor: "#e11d48",
-    backgroundColor: "#fff1f2",
-  },
-  textArea: {
-    height: 80,
-    textAlignVertical: "top",
-  },
-  row: {
-    flexDirection: "row",
-  },
-  categoriesContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 4,
-  },
-  categoryChip: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+  textArea: { minHeight: 90, textAlignVertical: "top" },
+  categoryChips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
     backgroundColor: "#f1f5f9",
-    marginBottom: 4,
   },
-  categoryChipActive: {
-    backgroundColor: "#4f46e5",
-  },
-  categoryChipText: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: "#475569",
-  },
-  categoryChipTextActive: {
-    color: "#ffffff",
-  },
-  buttonRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginTop: 8,
-  },
-  btnCancel: {
+  chipActive: { backgroundColor: "#4f46e5" },
+  chipText: { fontSize: 12, color: "#475569", fontWeight: "600" },
+  chipTextActive: { color: "#ffffff" },
+  buttonRow: { flexDirection: "row", gap: 12, marginTop: 10 },
+  cancelBtn: {
     flex: 1,
     paddingVertical: 12,
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: "#cbd5e1",
     alignItems: "center",
   },
-  btnCancelText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#475569",
-  },
-  btnSubmit: {
+  cancelBtnText: { color: "#475569", fontWeight: "bold", fontSize: 14 },
+  submitBtn: {
     flex: 1,
     paddingVertical: 12,
-    borderRadius: 12,
+    borderRadius: 10,
     backgroundColor: "#4f46e5",
     alignItems: "center",
-    justifyContent: "center",
   },
-  btnSubmitDisabled: {
-    opacity: 0.7,
-  },
-  btnSubmitText: {
-    fontSize: 13,
-    fontWeight: "bold",
-    color: "#ffffff",
-  },
+  submitBtnText: { color: "#ffffff", fontWeight: "bold", fontSize: 14 },
 });
