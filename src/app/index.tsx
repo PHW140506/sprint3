@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 import { ActivityIndicator, FlatList, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 interface Product {
@@ -17,6 +18,7 @@ export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const router = useRouter();
+  const { canAccessAudits } = useAuth();
 
   // 1. Obtener las categorías disponibles al iniciar (Endpoint: /products/categories)
   useEffect(() => {
@@ -48,8 +50,20 @@ export default function Home() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>FakeStore App</Text>
-        <Text style={styles.subtitle}>Catálogo de productos</Text>
+        <View style={styles.headerCopy}>
+          <Text style={styles.title}>FakeStore App</Text>
+          <Text style={styles.subtitle}>Catálogo de productos</Text>
+        </View>
+
+        {canAccessAudits && (
+          <TouchableOpacity
+            accessibilityLabel="Abrir auditoría de carritos"
+            style={styles.auditButton}
+            onPress={() => router.push("/audits" as any)}
+          >
+            <Ionicons name="shield-checkmark-outline" size={22} color="#4f46e5" />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Barra de categorías horizontal (Chips) */}
@@ -134,7 +148,25 @@ const styles = StyleSheet.create({
   },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { marginTop: 10, color: '#64748b' },
-  header: { padding: 16, backgroundColor: '#ffffff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  headerCopy: { flex: 1 },
+  auditButton: {
+    width: 44,
+    height: 44,
+    marginLeft: 12,
+    borderRadius: 22,
+    backgroundColor: '#eef2ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   title: {
     fontSize: 24,
     fontWeight: "bold",
